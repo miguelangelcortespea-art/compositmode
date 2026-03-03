@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODOS — Compositor Modal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --accent: #c8a96e;
+    --accent2: #6e8ec8;
+    --accent3: #8ec87a;
+    --text: #e8e4d9;
+    --muted: #555567;
+    --danger: #c86e6e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 1.5rem 3rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  .logo span {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    min-height: calc(100vh - 72px);
+  }
+
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+    overflow-y: auto;
+  }
+
+  .section-divider {
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    border-left: 2px solid var(--accent2);
+    padding-left: 0.7rem;
+    margin-top: 0.3rem;
+  }
+
+  .section-divider.lyric-div {
+    color: var(--accent3);
+    border-color: var(--accent3);
+  }
+
+  .field-group label {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.45rem;
+  }
+
+  select, input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    padding: 0.6rem 0.85rem;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    resize: none;
+  }
+
+  textarea { resize: vertical; min-height: 72px; line-height: 1.6; cursor: text; }
+
+  select:hover, select:focus,
+  input[type="text"]:hover, input[type="text"]:focus,
+  textarea:hover, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .sliders { display: flex; flex-direction: column; gap: 1.1rem; }
+  .slider-row { display: flex; flex-direction: column; gap: 0.4rem; }
+  .slider-header { display: flex; justify-content: space-between; align-items: center; }
+
+  .slider-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .slider-val { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    background: var(--accent);
+    cursor: pointer;
+    border-radius: 0;
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .btn-row { display: flex; gap: 0.6rem; margin-top: auto; }
+
+  .btn {
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+  }
+
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { background: var(--text); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-lyric {
+    background: transparent;
+    color: var(--accent3);
+    border: 1px solid var(--accent3);
+    flex: 0 0 auto;
+    padding: 0.9rem 1.1rem;
+  }
+  .btn-lyric:hover { background: var(--accent3); color: var(--bg); }
+  .btn-lyric:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Output */
+  .output { padding: 2rem 2.5rem; overflow-y: auto; }
+
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .placeholder-glyph {
+    font-family: 'Playfair Display', serif;
+    font-size: 7rem;
+    opacity: 0.07;
+    line-height: 1;
+  }
+
+  .placeholder p { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .result { display: none; flex-direction: column; gap: 1.8rem; }
+  .result.visible { display: flex; animation: fadeIn 0.5s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.9rem;
+    font-weight: 700;
+    font-style: italic;
+    color: var(--accent);
+    line-height: 1.1;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 0.25rem; }
+
+  .meta-key {
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .meta-value { font-size: 0.82rem; color: var(--text); }
+
+  .out-section { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .out-title {
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    border-left: 2px solid var(--accent2);
+    padding-left: 0.75rem;
+  }
+
+  .out-title.lyric-title { color: var(--accent3); border-color: var(--accent3); }
+
+  .harmony-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+    gap: 0.45rem;
+  }
+
+  .chord-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.65rem 0.5rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .chord-num {
+    font-size: 0.52rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .chord-name { font-size: 0.88rem; font-weight: 700; }
+
+  .chord-special {
+    position: absolute;
+    top: 3px; right: 4px;
+    font-size: 0.42rem;
+    color: var(--danger);
+    letter-spacing: 0.05em;
+  }
+
+  .melody-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.1rem;
+    font-size: 0.78rem;
+    line-height: 2.4;
+    letter-spacing: 0.04em;
+  }
+
+  .degree {
+    display: inline-block;
+    background: var(--border);
+    padding: 0.1rem 0.38rem;
+    margin: 0.1rem;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.78rem;
+    cursor: default;
+    transition: background 0.15s;
+  }
+
+  .degree:hover { background: #2a2a3e; }
+  .degree.char { background: rgba(200,169,110,0.18); border: 1px solid var(--accent); color: var(--accent); }
+
+  .prose-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.1rem;
+    font-size: 0.78rem;
+    line-height: 1.9;
+    color: #b0acc0;
+  }
+
+  .lyric-block {
+    background: var(--surface);
+    border: 1px solid rgba(142, 200, 122, 0.25);
+    padding: 1.4rem 1.6rem 1.4rem 2rem;
+    font-size: 0.9rem;
+    line-height: 2.1;
+    color: var(--text);
+    white-space: pre-wrap;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    position: relative;
+  }
+
+  .lyric-block::before {
+    content: '"';
+    position: absolute;
+    top: -0.3rem; left: 0.8rem;
+    font-size: 5rem;
+    color: rgba(142,200,122,0.1);
+    font-family: 'Playfair Display', serif;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .lyric-integrated {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .lyric-section-block {
+    border: 1px solid rgba(142, 200, 122, 0.18);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .lyric-section-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(142,200,122,0.15);
+    background: rgba(142,200,122,0.05);
+  }
+
+  .lyric-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    align-items: baseline;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    gap: 1rem;
+  }
+
+  .lyric-row:last-child { border-bottom: none; }
+
+  .lyric-chord {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+    padding: 0.1rem 0.4rem;
+    background: rgba(200,169,110,0.1);
+    border: 1px solid rgba(200,169,110,0.2);
+    text-align: center;
+  }
+
+  .lyric-verse {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+    background: var(--surface);
+    border: 1px solid rgba(142, 200, 122, 0.25);
+    padding: 1.2rem 1.4rem;
+    font-size: 0.72rem;
+    color: var(--accent3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .lyric-loading::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--accent3);
+    animation: pulse 1s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+  .instr-tags { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+
+  .tag {
+    background: transparent;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    font-size: 0.68rem;
+    padding: 0.3rem 0.7rem;
+    letter-spacing: 0.07em;
+  }
+
+  .scale-visual {
+    display: flex;
+    height: 38px;
+    align-items: stretch;
+  }
+
+  .scale-note {
+    flex: 1;
+    background: var(--border);
+    margin-right: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.52rem;
+    color: var(--muted);
+  }
+
+  .scale-note.char-note {
+    background: rgba(200,169,110,0.22);
+    border-top: 2px solid var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .loading-bar {
+    height: 2px;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.7s ease;
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 1000;
+  }
+
+  .scale-legend {
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    margin-top: 0.3rem;
+  }
+
+  .scale-legend span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="loading-bar" id="loader"></div>
+
+<header>
+  <div class="logo">MODOS <span>// compositor modal</span></div>
+</header>
+
+<div class="main">
+  <aside class="sidebar">
+
+    <div class="section-divider">Parámetros musicales</div>
+
+    <div class="field-group">
+      <label>Tonalidad base</label>
+      <select id="tonic">
+        <option value="C">C</option>
+        <option value="Db">C# / Db</option>
+        <option value="D">D</option>
+        <option value="Eb">D# / Eb</option>
+        <option value="E">E</option>
+        <option value="F">F</option>
+        <option value="Gb">F# / Gb</option>
+        <option value="G">G</option>
+        <option value="Ab">G# / Ab</option>
+        <option value="A">A</option>
+        <option value="Bb">A# / Bb</option>
+        <option value="B">B</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label>Modo</label>
+      <select id="mode">
+        <option value="ionian">Jónico — I</option>
+        <option value="dorian">Dórico — II</option>
+        <option value="phrygian">Frigio — III</option>
+        <option value="lydian">Lidio — IV</option>
+        <option value="mixolydian">Mixolidio — V</option>
+        <option value="aeolian">Eólico — VI</option>
+        <option value="locrian">Locrio — VII</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label>Género</label>
+      <select id="genre">
+        <option value="jazz">Jazz Modal</option>
+        <option value="rock">Rock</option>
+        <option value="ambient">Ambient</option>
+        <option value="electronica">Electrónica</option>
+        <option value="latina">Música Latinoamericana</option>
+        <option value="folk">Folk / Progresivo</option>
+      </select>
+    </div>
+
+    <div class="sliders">
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Energía</span>
+          <span class="slider-val" id="energyVal">3</span>
+        </div>
+        <input type="range" id="energy" min="1" max="5" value="3">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Tensión armónica</span>
+          <span class="slider-val" id="tensionVal">2</span>
+        </div>
+        <input type="range" id="tension" min="1" max="5" value="2">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Densidad rítmica</span>
+          <span class="slider-val" id="densityVal">3</span>
+        </div>
+        <input type="range" id="density" min="1" max="5" value="3">
+      </div>
+    </div>
+
+    <div class="section-divider lyric-div">Lírica (opcional)</div>
+
+    <div class="field-group">
+      <label>Temática de la letra</label>
+      <textarea id="lyricTheme" placeholder="Ej: el exilio y la nostalgia del mar, la resistencia ante el olvido, un amor imposible en la ciudad…"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label>Estilo de escritura</label>
+      <select id="lyricStyle">
+        <option value="poetico">Poético / Metafórico</option>
+        <option value="narrativo">Narrativo / Descriptivo</option>
+        <option value="intimista">Íntimo / Confesional</option>
+        <option value="surrealista">Surrealista / Onírico</option>
+        <option value="critico">Crítico / Social</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="genBtn" onclick="generate()">→ Componer</button>
+      <button class="btn btn-lyric" id="lyricBtn" onclick="generateLyric()" disabled title="Genera letra basada en la composición">✦ Letra</button>
+    </div>
+
+  </aside>
+
+  <section class="output" id="output">
+    <div class="placeholder" id="placeholder">
+      <div class="placeholder-glyph">𝄞</div>
+      <p>Configura los parámetros<br>y pulsa Componer</p>
+    </div>
+    <div class="result" id="result"></div>
+  </section>
+</div>
+
+<script>
+// ─── Slider display ─────────────────────────────────────────────────────────
+['energy','tension','density'].forEach(function(id) {
+  var el = document.getElementById(id);
+  var val = document.getElementById(id + 'Val');
+  el.oninput = function() { val.textContent = el.value; };
+});
+
+// ─── Music theory data ───────────────────────────────────────────────────────
+var NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+var MODES = {
+  ionian:     { intervals:[0,2,4,5,7,9,11], char:3, name:'Jónico',    feel:'brillante, resuelto, estable' },
+  dorian:     { intervals:[0,2,3,5,7,9,10], char:5, name:'Dórico',    feel:'oscuro con esperanza, groovy' },
+  phrygian:   { intervals:[0,1,3,5,7,8,10], char:1, name:'Frigio',    feel:'tenso, flamenco, sombrío' },
+  lydian:     { intervals:[0,2,4,6,7,9,11], char:3, name:'Lidio',     feel:'onírico, flotante, irreal' },
+  mixolydian: { intervals:[0,2,4,5,7,9,10], char:6, name:'Mixolidio', feel:'rock, bluesy, relajado' },
+  aeolian:    { intervals:[0,2,3,5,7,8,10], char:5, name:'Eólico',    feel:'melancólico, oscuro, romántico' },
+  locrian:    { intervals:[0,1,3,5,6,8,10], char:4, name:'Locrio',    feel:'inestable, disonante, caótico' }
+};
+
+var GENRE_DATA = {
+  jazz:        { tempo:'♩= 120–140 (swing)',   pattern:'Ride en swing, hi-hat en 2 y 4, bombo libre, línea de bajo walking.',   instruments:['Trompeta','Piano (voicings cuartales)','Contrabajo','Batería','Saxo tenor'] },
+  rock:        { tempo:'♩= 100–130',           pattern:'Bombo en 1 y 3, caja en 2 y 4, hi-hat en corcheas, guitarra rítmica en power chords o palm mute.', instruments:['Guitarra eléctrica','Bajo eléctrico','Batería','Synth pad'] },
+  ambient:     { tempo:'♩= 60–80 (libre)',     pattern:'Pad sostenido, pulso suave en 8vos, reverb profundo, sin percusión agresiva.',  instruments:['Synth pad','Guitarra con delay','Rhodes','Texturas de campo'] },
+  electronica: { tempo:'♩= 125–140 (4/4)',    pattern:'Bombo en todos los tiempos, sidechain en pad, línea de bass synth sincopada, hi-hat en 16vos.', instruments:['Bass synth','Pad modulado','Arpeggiator','Drum machine','Lead synth'] },
+  latina:      { tempo:'♩= 95–115',            pattern:'Clave 3-2 o 2-3, congas en síncopa, bajo anticipado, voz o violín en contrapunto.', instruments:['Bajo eléctrico','Congas / Timbales','Piano o marimba','Guitarra criolla','Voz'] },
+  folk:        { tempo:'♩= 90–115',            pattern:'Guitarra fingerpicking en 6/8 o 3/4, bajo pedal, batería opcional con escobillas.', instruments:['Guitarra acústica','Bajo eléctrico','Mandolina','Flauta traversa','Voz armónica'] }
+};
+
+// ─── State ──────────────────────────────────────────────────────────────────
+var lastComposition = null;
+
+// ─── Scale builder ───────────────────────────────────────────────────────────
+function buildScale(tonic, mode) {
+  var tonicIdx = NOTES.indexOf(tonic);
+  return MODES[mode].intervals.map(function(i) { return NOTES[(tonicIdx + i) % 12]; });
+}
+
+// ─── Fallback title ──────────────────────────────────────────────────────────
+function getFallbackTitle(tonic, mode) {
+  var adj = { ionian:'Solar', dorian:'Índigo', phrygian:'Umbral', lydian:'Éter', mixolydian:'Cromo', aeolian:'Noche', locrian:'Vértigo' };
+  return (adj[mode] || 'Modal') + ' en ' + tonic;
+}
+
+// ─── Fallback local generator ────────────────────────────────────────────────
+function localGenerate(tonic, mode, genre, energy, tension, scale, modeData, genreData) {
+  var bases = {
+    ionian:     [['Cmaj7','Dm7','G7','Cmaj7'],       ['Fmaj7','Cmaj7','Dm7','G7'],     ['Cmaj7','Am7','Fmaj7','G7']],
+    dorian:     [['Dm7','G7','Dm7','C'],              ['Dm7','C','Dm7','G7'],            ['Dm7','Em7','G7','Dm7']],
+    phrygian:   [['Em','F','Em','F'],                 ['Em','Dm','C','F'],               ['Em','F','Dm','Em']],
+    lydian:     [['Fmaj7','G','Fmaj7','Em7'],         ['Fmaj7','G','Am7','Fmaj7'],       ['Fmaj7','Em7','G','Fmaj7']],
+    mixolydian: [['G7','F','C','G7'],                 ['G7','Dm7','C','G7'],             ['G7','F','C','Dm7']],
+    aeolian:    [['Am','F','G','Am'],                 ['Am','Em','G','Am'],              ['Am','G','F','Em']],
+    locrian:    [['Bm7b5','C','Bm7b5','Bb'],          ['C','Bm7b5','Ab','C'],            ['Bm7b5','Em','C','Bm7b5']]
+  };
+
+  var baseIdx = energy > 3 ? 2 : energy > 1 ? 1 : 0;
+  var base = bases[mode][baseIdx];
+  var bars = base.concat(base); // 8 compases
+
+  var specials = {};
+  if (tension > 3) { specials['2'] = 'sec.dom'; }
+  if (tension > 4) { specials['5'] = 'int.modal'; }
+
+  var charDeg = modeData.char + 1;
+  var melody = [
+    scale[0], scale[2], scale[modeData.char], scale[4],
+    scale[modeData.char], scale[2], scale[1], scale[0],
+    scale[4], scale[modeData.char], scale[6], scale[5],
+    scale[modeData.char], scale[4], scale[2], scale[0]
+  ];
+
+  return {
+    title: getFallbackTitle(tonic, mode),
+    tempo: genreData.tempo,
+    clima: 'Una atmósfera ' + modeData.feel + ' en el contexto del género ' + genre + '.',
+    progresion: bars,
+    specials: specials,
+    melodia: melody,
+    grado_caracteristico: charDeg,
+    ritmo: genreData.pattern,
+    instrumentacion: genreData.instruments
+  };
+}
+
+// ─── Main generation ─────────────────────────────────────────────────────────
+async function generate() {
+  var btn = document.getElementById('genBtn');
+  var lyricBtn = document.getElementById('lyricBtn');
+  var loader = document.getElementById('loader');
+
+  btn.textContent = '...componiendo';
+  btn.disabled = true;
+  lyricBtn.disabled = true;
+  loader.style.width = '30%';
+
+  var tonic   = document.getElementById('tonic').value;
+  var mode    = document.getElementById('mode').value;
+  var genre   = document.getElementById('genre').value;
+  var energy  = parseInt(document.getElementById('energy').value);
+  var tension = parseInt(document.getElementById('tension').value);
+  var density = parseInt(document.getElementById('density').value);
+
+  var scale    = buildScale(tonic, mode);
+  var modeData = MODES[mode];
+  var genreData = GENRE_DATA[genre];
+  var charNote = scale[modeData.char];
+
+  var prompt = 'Eres un compositor experto en teoría modal. Genera una pieza musical con estos datos exactos:\n' +
+    '- Tonalidad: ' + tonic + '\n' +
+    '- Modo: ' + modeData.name + ' (' + mode + ')\n' +
+    '- Escala resultante: ' + scale.join(' - ') + '\n' +
+    '- Nota característica: ' + charNote + ' (grado ' + (modeData.char + 1) + ')\n' +
+    '- Género: ' + genre + '\n' +
+    '- Energía: ' + energy + '/5\n' +
+    '- Tensión armónica: ' + tension + '/5\n' +
+    '- Densidad rítmica: ' + density + '/5\n' +
+    '- Feel: ' + modeData.feel + '\n\n' +
+    'Responde ÚNICAMENTE con un objeto JSON válido, sin markdown, sin bloques de código, sin texto adicional antes o después. Solo el JSON puro:\n' +
+    '{\n' +
+    '  "title": "título poético en español de 2-4 palabras",\n' +
+    '  "tempo": "indicación de tempo y carácter",\n' +
+    '  "clima": "descripción emocional breve de 1 oración",\n' +
+    '  "progresion": ["acorde1","acorde2","acorde3","acorde4","acorde5","acorde6","acorde7","acorde8"],\n' +
+    '  "specials": {},\n' +
+    '  "melodia": ["nota1","nota2","nota3","nota4","nota5","nota6","nota7","nota8","nota9","nota10","nota11","nota12","nota13","nota14","nota15","nota16"],\n' +
+    '  "grado_caracteristico": ' + (modeData.char + 1) + ',\n' +
+    '  "ritmo": "descripción del patrón rítmico en 2 oraciones",\n' +
+    '  "instrumentacion": ["inst1","inst2","inst3","inst4","inst5"]\n' +
+    '}\n\n' +
+    'REGLAS OBLIGATORIAS:\n' +
+    '- Los acordes deben usar los nombres REALES de las notas en ' + tonic + ' ' + modeData.name + ', por ejemplo: ' + scale[0] + 'maj7, ' + scale[1] + 'm7, ' + scale[4] + '7\n' +
+    '- La melodía usa los nombres REALES de las notas tomadas de la escala: ' + scale.join(', ') + '\n' +
+    '- Si tensión > 3, incluye en "specials" el compás (string) con dominante secundario, ej: {"2": "sec.dom"}\n' +
+    '- Si tensión > 4, añade intercambio modal en "specials", ej: {"5": "int.modal"}\n' +
+    '- grado_caracteristico siempre es ' + (modeData.char + 1);
+
+  loader.style.width = '60%';
+
+  var comp;
+  try {
+    var response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    var data = await response.json();
+    if (!response.ok) throw new Error((data.error && data.error.message) || 'API error');
+
+    var rawText = data.content.map(function(b) { return b.type === 'text' ? b.text : ''; }).join('');
+    // Strip any markdown fences
+    var clean = rawText.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    // Extract JSON object if there's surrounding text
+    var jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    comp = JSON.parse(jsonMatch[0]);
+
+  } catch(e) {
+    console.warn('API fallback:', e.message);
+    comp = localGenerate(tonic, mode, genre, energy, tension, scale, modeData, genreData);
+  }
+
+  lastComposition = { comp: comp, scale: scale, modeData: modeData, genreData: genreData, tonic: tonic, mode: mode, genre: genre };
+
+  loader.style.width = '100%';
+  renderResult(comp, scale, modeData, genreData, tonic);
+
+  setTimeout(function() { loader.style.width = '0%'; }, 600);
+  btn.textContent = '→ Componer';
+  btn.disabled = false;
+  lyricBtn.disabled = false;
+}
+
+// ─── Lyric generation ────────────────────────────────────────────────────────
+async function generateLyric() {
+  if (!lastComposition) return;
+
+  var lyricBtn = document.getElementById('lyricBtn');
+  var theme = document.getElementById('lyricTheme').value.trim();
+  var style = document.getElementById('lyricStyle').value;
+
+  var styleDesc = {
+    poetico:     'poético y metafórico, con imágenes líricas densas',
+    narrativo:   'narrativo y descriptivo, que cuenta una historia concreta',
+    intimista:   'íntimo y confesional, en primera persona, como un diario',
+    surrealista: 'surrealista y onírico, con imágenes inconexas pero evocadoras',
+    critico:     'crítico y social, con denuncia velada o directa'
+  };
+
+  var comp     = lastComposition.comp;
+  var modeData = lastComposition.modeData;
+  var genre    = lastComposition.genre;
+  var tonic    = lastComposition.tonic;
+
+  lyricBtn.disabled = true;
+  lyricBtn.textContent = '...';
+
+  var lyricSection = document.getElementById('lyric-section');
+  if (!lyricSection) {
+    lyricSection = document.createElement('div');
+    lyricSection.id = 'lyric-section';
+    lyricSection.className = 'out-section';
+    document.getElementById('result').appendChild(lyricSection);
+  }
+
+  lyricSection.innerHTML =
+    '<div class="out-title lyric-title">Letra sugerida</div>' +
+    '<div class="lyric-loading">Componiendo la letra…</div>';
+
+  var themeText = theme || 'un tema libre acorde al carácter del modo';
+
+  var progresion = (comp.progresion || []).join(', ');
+  // Build chord map: 8 chords → 12 lines (Estrofa1×4 + Coro×4 + Estrofa2×4)
+  // Each line gets one chord: lines cycle through the 8-chord progression
+  var chords = comp.progresion || [];
+
+  var lyricPrompt = 'Eres un letrista experto. Escribe la letra de una canción con estas características:\n\n' +
+    'CONTEXTO MUSICAL:\n' +
+    '- Título de la pieza: "' + (comp.title || 'Sin título') + '"\n' +
+    '- Modo: ' + modeData.name + ' — feel: ' + modeData.feel + '\n' +
+    '- Género: ' + genre + '\n' +
+    '- Tonalidad: ' + tonic + '\n' +
+    '- Clima emocional: ' + (comp.clima || '') + '\n' +
+    '- Progresión armónica (8 compases que se repiten): ' + progresion + '\n\n' +
+    'PARÁMETROS DE LA LETRA:\n' +
+    '- Temática: ' + themeText + '\n' +
+    '- Estilo de escritura: ' + styleDesc[style] + '\n' +
+    '- Idioma: español\n\n' +
+    'ESTRUCTURA OBLIGATORIA — responde EXACTAMENTE en este formato JSON, sin markdown:\n' +
+    '{\n' +
+    '  "estrofa1": ["verso1","verso2","verso3","verso4"],\n' +
+    '  "coro":     ["verso1","verso2","verso3","verso4"],\n' +
+    '  "estrofa2": ["verso1","verso2","verso3","verso4"]\n' +
+    '}\n\n' +
+    'INSTRUCCIONES:\n' +
+    '- Cada verso debe fluir naturalmente sobre el acorde correspondiente de la progresión\n' +
+    '- Estrofa 1 usa compases 1-4 (' + (chords.slice(0,4).join(' | ') || '—') + ')\n' +
+    '- Coro usa compases 5-8 (' + (chords.slice(4,8).join(' | ') || '—') + ')\n' +
+    '- Estrofa 2 usa compases 1-4 de nuevo (' + (chords.slice(0,4).join(' | ') || '—') + ')\n' +
+    '- Usa metáforas que reflejen el feel: ' + modeData.feel + '\n' +
+    '- Adapta el registro al género ' + genre + '\n' +
+    '- Prefiere rima asonante o verso libre con cadencia natural\n' +
+    '- Solo el JSON, sin texto adicional.';
+
+  try {
+    var response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: lyricPrompt }]
+      })
+    });
+
+    var data = await response.json();
+    if (!response.ok) throw new Error((data.error && data.error.message) || 'API error ' + response.status);
+
+    var rawLyric = data.content.map(function(b) { return b.type === 'text' ? b.text : ''; }).join('').trim();
+    var lyricMatch = rawLyric.match(/\{[\s\S]*\}/);
+    if (!lyricMatch) throw new Error('No JSON in lyric response');
+    var lyricData = JSON.parse(lyricMatch[0]);
+
+    // Build integrated chord+lyric display
+    function buildSection(label, verses, chordSlice) {
+      var rows = verses.map(function(verse, i) {
+        var chord = chordSlice[i] || chordSlice[i % chordSlice.length] || '';
+        return '<div class="lyric-row">' +
+          '<span class="lyric-chord">' + chord + '</span>' +
+          '<span class="lyric-verse">' + verse + '</span>' +
+          '</div>';
+      }).join('');
+      return '<div class="lyric-section-block">' +
+        '<div class="lyric-section-label">' + label + '</div>' +
+        rows +
+        '</div>';
+    }
+
+    var html =
+      buildSection('Estrofa 1', lyricData.estrofa1 || [], chords.slice(0,4)) +
+      buildSection('Coro',      lyricData.coro     || [], chords.slice(4,8)) +
+      buildSection('Estrofa 2', lyricData.estrofa2 || [], chords.slice(0,4)) +
+      '<div class="lyric-section-block">' +
+        '<div class="lyric-section-label">Coro</div>' +
+        (lyricData.coro || []).map(function(verse, i) {
+          var chord = chords.slice(4,8)[i] || '';
+          return '<div class="lyric-row"><span class="lyric-chord">' + chord + '</span><span class="lyric-verse">' + verse + '</span></div>';
+        }).join('') +
+      '</div>';
+
+    lyricSection.innerHTML =
+      '<div class="out-title lyric-title">Letra — ' + styleDesc[style].split(',')[0] + '</div>' +
+      '<div class="lyric-integrated">' + html + '</div>';
+
+  } catch(e) {
+    console.error('Lyric error:', e.message);
+    lyricSection.innerHTML =
+      '<div class="out-title lyric-title">Letra sugerida</div>' +
+      '<div class="prose-block" style="color:var(--danger)">Error: ' + e.message + '. Intenta de nuevo.</div>';
+  }
+
+  lyricBtn.disabled = false;
+  lyricBtn.textContent = '✦ Letra';
+  lyricSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── Render result ───────────────────────────────────────────────────────────
+function renderResult(comp, scale, modeData, genreData, tonic) {
+  document.getElementById('placeholder').style.display = 'none';
+  var result = document.getElementById('result');
+  result.classList.remove('visible');
+
+  // Scale visual
+  var scaleHTML = scale.map(function(note, i) {
+    return '<div class="scale-note' + (i === modeData.char ? ' char-note' : '') + '">' + note + '</div>';
+  }).join('');
+
+  // Harmony grid
+  // BUG FIX: specials keys are strings, compare with String(i)
+  var progresion = comp.progresion || [];
+  var specials   = comp.specials || {};
+  var harmHTML = progresion.map(function(chord, i) {
+    var sp = specials[String(i)];
+    return '<div class="chord-cell">' +
+      '<span class="chord-num">c.' + (i + 1) + '</span>' +
+      '<span class="chord-name">' + chord + '</span>' +
+      (sp ? '<span class="chord-special">' + sp + '</span>' : '') +
+      '</div>';
+  }).join('');
+
+  // Melody
+  var charNote = scale[modeData.char];
+  var melodia  = comp.melodia || [];
+  var melHTML = melodia.map(function(note) {
+    var isChar = (note === charNote);
+    return '<span class="degree' + (isChar ? ' char' : '') + '" title="' + note + '">' + note + '</span>';
+  }).join(' ');
+
+  result.innerHTML =
+    '<div class="result-title">' + (comp.title || 'Sin título') + '</div>' +
+    '<div class="meta-row">' +
+      '<div class="meta-item"><span class="meta-key">Modo</span><span class="meta-value">' + modeData.name + '</span></div>' +
+      '<div class="meta-item"><span class="meta-key">Tonalidad</span><span class="meta-value">' + tonic + '</span></div>' +
+      '<div class="meta-item"><span class="meta-key">Tempo</span><span class="meta-value">' + (comp.tempo || '—') + '</span></div>' +
+      '<div class="meta-item"><span class="meta-key">Clima</span><span class="meta-value">' + (comp.clima || '—') + '</span></div>' +
+    '</div>' +
+
+    '<div class="out-section">' +
+      '<div class="out-title">Escala — nota característica (grado ' + (modeData.char + 1) + ') resaltada</div>' +
+      '<div class="scale-visual">' + scaleHTML + '</div>' +
+      '<div class="scale-legend">La nota <span>' + charNote + '</span> es el color característico del modo ' + modeData.name + '</div>' +
+    '</div>' +
+
+    '<div class="out-section">' +
+      '<div class="out-title">Progresión armónica — 8 compases</div>' +
+      '<div class="harmony-grid">' + harmHTML + '</div>' +
+    '</div>' +
+
+    '<div class="out-section">' +
+      '<div class="out-title">Melodía sugerida — nota característica en ámbar</div>' +
+      '<div class="melody-block">' + melHTML + '</div>' +
+    '</div>' +
+
+    '<div class="out-section">' +
+      '<div class="out-title">Patrón rítmico</div>' +
+      '<div class="prose-block">' + (comp.ritmo || genreData.pattern) + '</div>' +
+    '</div>' +
+
+    '<div class="out-section">' +
+      '<div class="out-title">Instrumentación</div>' +
+      '<div class="instr-tags">' +
+        (comp.instrumentacion || genreData.instruments).map(function(inst) {
+          return '<span class="tag">' + inst + '</span>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+
+  setTimeout(function() { result.classList.add('visible'); }, 50);
+}
+</script>
+</body>
+</html>
